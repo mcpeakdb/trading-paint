@@ -36,6 +36,11 @@ button{font-family:inherit}
 .card h2{font-size:15px;text-transform:uppercase;letter-spacing:1px;color:var(--dim);margin-bottom:12px;display:flex;align-items:center;gap:8px}
 .card h2 .tag{margin-left:auto}
 
+.teamname{display:block;font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--dim);margin:-2px 0 14px}
+.teamname input{display:block;width:100%;margin-top:6px;padding:9px 11px;font-family:inherit;font-size:16px;font-weight:700;letter-spacing:.3px;
+  color:var(--ink);background:var(--bg2);border:1px solid var(--line);border-radius:8px;text-transform:none}
+.teamname input:focus{outline:none;border-color:var(--blue);box-shadow:0 0 0 2px rgba(74,163,255,.25)}
+
 .tag{font-size:11px;font-weight:700;padding:2px 8px;border-radius:999px;background:var(--panel2);color:var(--dim);letter-spacing:.5px}
 .tag.gold{background:rgba(255,210,63,.16);color:var(--gold)}
 .tag.green{background:rgba(55,214,122,.16);color:var(--green)}

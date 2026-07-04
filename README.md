@@ -1,8 +1,9 @@
 # Trading Paint — playable prototype
 
 A browser implementation of the stock-car deckbuilder in
-[`trading-paint-design.md`](trading-paint-design.md). Solo, vs 9 AI rivals,
-**Sprint season** format. No build step, no dependencies.
+[`trading-paint-design.md`](trading-paint-design.md). A **4-team season** — you vs
+**3 AI teams** that all start from the *identical* mid-pack car and deck, then draft
+up through the Garage between races. **Sprint season** format. No build step, no dependencies.
 
 ## Play
 
@@ -35,15 +36,21 @@ Most points after 5 races is champion.
   Lucky Dog, Rain Delay, Engine Failure (punishes the leader), and extra Big Ones
   on superspeedways.
 - The real **2026 points curve** (P1=55, P(n)=35−(n−2)…1) + fastest-lap +1.
-- **AI rivals** that draft up over the season (§11's "fixed rating + flip" bots).
+- **Symmetric AI teams** (§11's hand-piloted rivals): each AI is a full team with its
+  own tableau, deck, cash and Garage. They start dead even with you and draft toward
+  distinct archetypes — a **Charger** (speed/aggression), an **Ironman** (durability),
+  and a **Balanced** all-rounder — drawing and playing a real hand under the same energy
+  cap. A do-nothing player finishes last ~100% of the time; a good drafter takes its
+  fair share of titles (≈25% of a 4-team field).
 
 ## Not yet built (future, per §6/§11)
 
-Full-Season format (3 stages, stage points, The Chase), the deeper 20-card Garage,
-and hand-piloted rivals. The engine is structured so these slot in.
+Full-Season format (3 stages, stage points, The Chase), the deeper 20-card Garage, and a
+selectable 2–3 team count. The engine is structured so these slot in.
 
 ## Dev note
 
-`game.js` is pure client-side and self-testing-friendly: the headless harness in
-this repo's history auto-plays 200 seasons to check position uniqueness, the points
-curve, and win-rate balance (greedy bot ≈ 48% titles).
+`game.js` is pure client-side and self-testing-friendly: a headless harness (DOM stubs +
+direct-eval) can auto-play hundreds of seasons to check position uniqueness, the points
+curve, and win-rate balance — a passive player wins ~0% of titles, an active drafter ~25%
+(its fair share of the 4-team field).

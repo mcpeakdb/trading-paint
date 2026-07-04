@@ -127,8 +127,8 @@ const TRACKS = [
 const INCIDENTS = [
   ...times(5, () => ({ name: 'Clean Air', mood: '', icon: '🟢', text: 'Nothing happens. A clean lap for the field.', apply: () => {} })),
   ...times(2, () => ({ name: 'Debris Caution', mood: 'caution', icon: '🟡', caution: true,
-      text: 'A caution flies! Everyone may pit — play a Pit card, or the field trades position.',
-      apply: (c) => { if (!c.isPlayer) c.delta += Math.floor(c.stats.PIT / 2); } })),
+      text: 'A caution flies! Everyone may pit — play a Pit card to cash in your PIT stat.',
+      apply: () => {} })),
   ...times(2, () => ({ name: 'Loose Wheel', mood: 'bad', icon: '🔧', dur: true,
       text: 'Loose wheel! DUR ≥5 or −4.', apply: (c) => { if (c.stats.DUR < 5) durHit(c, 4); } })),
   { name: 'Blown Tire', mood: 'bad', icon: '💥', dur: true, text: 'Blown tire! DUR ≥6 or −6.',
@@ -174,18 +174,23 @@ function finishPoints(pos) { return pos === 1 ? 55 : Math.max(1, 35 - (pos - 2))
 const RACES = 5;          // Sprint season length
 const ENERGY = 3;         // Sprint pit-energy cap
 const HAND = 5;
-const RIVAL_COUNT = 9;    // AI contenders; field cars fill the rest of 40
+const RIVAL_COUNT = 3;    // AI teams; you + these = a 4-team game. Field cars fill the rest of 40.
+
+// Everyone — you and every AI — begins from this identical mid-pack team + deck (§8.1).
+const STARTER_TEAM = () => ({ driver: 'freshman', car: 'base', chief: 'veteran', crew: 'volunteer', sponsor: 'diner', parts: [] });
+const STARTER_DECK = () => ['steady','steady','steady','steady','steady','push','push','push','pit','pit'];
 
 let G = null;             // the whole game state
 let ui = {};              // per-phase transient UI state
 
+const DEFAULT_TEAM_NAME = 'Green Flag Racing';
+
 function newGame() {
   const player = {
-    name: 'You', isPlayer: true, cash: 6, seasonPoints: 0,
-    team: { driver: 'freshman', car: 'base', chief: 'veteran', crew: 'volunteer', sponsor: 'diner', parts: [] },
-    deck: ['steady','steady','steady','steady','steady','push','push','push','pit','pit'],
+    name: DEFAULT_TEAM_NAME, isPlayer: true, cash: 6, seasonPoints: 0,
+    team: STARTER_TEAM(), deck: STARTER_DECK(),
   };
-  const rivals = makeRivals();
+  const rivals = makeAITeams([player.name]);
   G = {
     race: 0, format: 'Sprint', player, rivals,
     schedule: shuffle(TRACKS).slice(0, RACES),
@@ -193,25 +198,28 @@ function newGame() {
   };
   phaseIntro();
 }
+// live-edit the player's team name from the intro input
+function setTeamName(v) { G.player.name = v; }
 
-function makeRivals() {
-  const names = ['Cole Vantz','Marty Rue','Deshawn Fox','Bo Hutchins','Vera Cortez',
-                 'Nash Bellamy','Junior Pratt','Sela Kwan','Tank Morrow','Rusty Vale','Gio Marchetti'];
-  const drv = ['kyle','dale','rico','lopez','buddy','rook'];
-  const car = ['apex','ironhide','slipstream','cornerhugger'];
-  const chosen = shuffle(names).slice(0, RIVAL_COUNT);
-  return chosen.map((name, i) => {
-    // spread of talent: some rivals start strong, some scrappy
-    const strength = 0.4 + (i / RIVAL_COUNT) * 0.9 + Math.random() * 0.4;
-    const D = DRIVERS[pick(drv)], C = CARS[pick(car)];
-    const r = {
-      name, isPlayer: false, seasonPoints: 0,
-      SPD: C.SPD + D.SPD, HAN: C.HAN + D.HAN, DUR: C.DUR,
-      PIT: pick([3, 4, 6]), skill: strength,
-      driverName: D.name, carName: C.name,
-    };
-    return r;
-  });
+const AI_LABEL = { charger: 'Charger AI', ironman: 'Ironman AI', balanced: 'Balanced AI' };
+
+// Race-team (organization) names — stable all season even when a team swaps drivers.
+const TEAM_NAMES = ['Redline Racing','Apex Motorsports','Ironwood Racing','Slipstream Racing',
+  'Dixie Thunder Racing','Copperline Racing','Vanguard Motorsports','Nightshade Racing',
+  'Boomtown Racing','Piston Peak Racing','Fastlane Motorsports','Sabertooth Racing'];
+
+// The AI opponents are full teams, symmetric with the player: identical starter
+// tableau + deck + cash. They diverge only through the Garage, each drafting toward
+// a distinct archetype (§8.2). See aiGarage() for the per-archetype wishlists.
+function makeAITeams(taken = []) {
+  const archetypes = ['charger', 'ironman', 'balanced'];
+  const chosen = shuffle(TEAM_NAMES.filter(n => !taken.includes(n))).slice(0, RIVAL_COUNT);
+  return chosen.map((name, i) => ({
+    name, isPlayer: false, cash: 6, seasonPoints: 0,
+    team: STARTER_TEAM(), deck: STARTER_DECK(),
+    archetype: archetypes[i % archetypes.length],
+    lastBuy: null,   // most recent Garage acquisition, surfaced on the results screen
+  }));
 }
 
 /* ==========================================================================
@@ -301,16 +309,20 @@ function phaseIntro() {
   <div class="grid cols">
     <div class="card">
       <h2>🏁 Your Race Team <span class="tag">STARTER</span></h2>
+      <label class="teamname">Team name
+        <input type="text" maxlength="24" value="${esc(p.name)}" oninput="setTeamName(this.value)" placeholder="${DEFAULT_TEAM_NAME}">
+      </label>
       ${tableauCard(p.team)}
       ${statBlock(stats)}
-      <p class="muted big" style="margin-top:14px">You start mid-pack (~P18–26 of 40). The season is the climb into the top 10 — drafting a better team is the engine; your deck is the swing.</p>
+      <p class="muted big" style="margin-top:14px">You and <b>${RIVAL_COUNT} AI teams</b> all roll out from this <em>identical</em> mid-pack car (~P18–26 of 40). The season is the climb into the top 10 — everyone drafts up in the Garage between races, so out-building your rivals is the whole game.</p>
     </div>
     <div class="card">
       <h2>📋 The Season</h2>
-      <p class="big">A <b>${RACES}-race Sprint season</b> against <b>${RIVAL_COUNT} AI rivals</b>, scored on a fixed <b>40-car field</b> with the real <b>2026 NASCAR Cup</b> points system (win = 55).</p>
-      <div style="margin:12px 0">${G.schedule.map(t => `<span class="pill">${esc(t.name)} · ${t.key === 'HIGH' ? 'highest' : t.key} ×2</span>`).join('')}</div>
+      <p class="big">A <b>${RACES}-race Sprint season</b>, <b>${RIVAL_COUNT + 1} teams</b> starting dead even, scored on a fixed <b>40-car field</b> with the real <b>2026 NASCAR Cup</b> points system (win = 55).</p>
+      <div style="margin:10px 0 4px">${[G.player, ...G.rivals].map(t => `<span class="pill">${esc(t.name)}${t.isPlayer ? ' · you' : ' · ' + AI_LABEL[t.archetype]}</span>`).join('')}</div>
+      <div style="margin:8px 0 12px">${G.schedule.map(t => `<span class="pill">${esc(t.name)} · ${t.key === 'HIGH' ? 'highest' : t.key} ×2</span>`).join('')}</div>
       <hr>
-      <p class="muted" style="font-size:13px">Each race: reveal the track → chief bonus → draw a hand of 5 → an incident flips → play tactics under a <b>${ENERGY}-energy</b> cap → roll 1d6 → take your finish. Then hit the <b>Garage</b> to draft up.</p>
+      <p class="muted" style="font-size:13px">Each race: reveal the track → chief bonus → draw a hand of 5 → an incident flips → play tactics under a <b>${ENERGY}-energy</b> cap → roll 1d6 → take your finish. Then hit the <b>Garage</b> to draft up — the AIs draft too.</p>
       <div class="btnrow"><button class="btn primary wide" onclick="startRace()">Take the green flag →</button></div>
     </div>
   </div>
@@ -333,6 +345,7 @@ function deckSummary(deck) {
    PHASE: RACE — the interactive turn (§5)
    ========================================================================== */
 function startRace() {
+  if (!G.player.name || !G.player.name.trim()) G.player.name = DEFAULT_TEAM_NAME;
   const track = G.schedule[G.race];
   const ch = CHIEFS[G.player.team.chief];
   ui = { track, phase: 'chief', chiefStat: null, hand: null, played: [], quali: [], energy: ENERGY,
@@ -375,11 +388,30 @@ function playerLiveStats() { return teamStats(G.player.team, ui.chiefStat); }
 
 // projected pre-tactics score, used for Clean Air's "projected top-3" check
 function projTop3() {
-  const stats = playerLiveStats();
-  const my = baseP(stats, ui.track);
+  return contenderProjTop3(baseP(playerLiveStats(), ui.track), G.player);
+}
+// How many *other* contenders out-pace this base? <3 means projected top-3.
+function contenderProjTop3(myBase, self) {
   let better = 0;
-  for (const r of G.rivals) if (rivalBaseP(r) > my) better++;
+  for (const r of G.rivals) {
+    if (r === self) continue;
+    if (rivalLiveBaseP(r) > myBase) better++;
+  }
+  if (self !== G.player && baseP(playerLiveStats(), ui.track) > myBase) better++;
   return better < 3;
+}
+// An AI team's real pre-tactic base pace this race (its own chief bonus applied).
+function rivalLiveBaseP(r) {
+  return baseP(teamStats(r.team, aiChiefStat(r.team, ui.track)), ui.track);
+}
+// AI counterpart to the interactive chief prompt: stat-placing chiefs load the
+// doubled key stat (own highest on intermediates) — the same advice the UI gives you.
+function aiChiefStat(team, track) {
+  const ch = CHIEFS[team.chief];
+  if (ch.hook !== 'bonus1' && ch.hook !== 'bonus2') return null;
+  if (track.key !== 'HIGH') return track.key === 'DUR' ? 'SPD' : track.key;
+  const s = teamStats(team);
+  return s.SPD >= s.HAN ? 'SPD' : 'HAN';
 }
 
 function tacticCtx() {
@@ -442,9 +474,9 @@ function spentEnergy() {
   }
   return sp;
 }
-function energyCost(card) {
+function energyCost(card, team = G.player.team) {
   // Kyle Ace: Aggression tactics cost 0 energy
-  if (card.aggression && G.player.team.driver === 'kyle') return 0;
+  if (card.aggression && team.driver === 'kyle') return 0;
   return card.energy;
 }
 function energyBar() {
@@ -479,18 +511,8 @@ function clickCard(uid) {
   const h = ui.hand.find(x => x.uid === uid), c = TACTICS[h.id];
   if (handDisabled(h, c)) return;
   if (c.qualifying) ui.quali.push(uid);
-  else {
-    if (c.aggression) ui.target = pickTargetRival();
-    ui.played.push(uid);
-  }
+  else ui.played.push(uid);       // aggression auto-targets the strongest rival at resolve time
   renderRace();
-}
-function pickTargetRival() {
-  // aggression auto-targets the strongest rival ahead of you (uses live contenders
-  // once the incident is flipped, so the −Score actually lands on the scored car)
-  const pool = (ui.contenders || []).filter(c => !c.isPlayer && !c.dnf);
-  if (!pool.length) return null;
-  return pool.reduce((a, b) => (b.base + b.delta) > (a.base + a.delta) ? b : a);
 }
 
 function incidentPrompt() {
@@ -562,85 +584,144 @@ function flipIncident() {
   renderRace();
 }
 
-// Snapshot every contender's pre-tactic, pre-incident state
+// Snapshot every contender's pre-tactic, pre-incident state. Player and AIs are
+// built the same way now — real team stats, real DUR/fuel flags — so the incident
+// deck's gates (Big One, Loose Wheel, Fuel Misers…) apply to all of them uniformly.
 function buildContenders() {
-  const list = [];
-  const pstats = playerLiveStats();
-  const p = {
-    isPlayer: true, name: 'You', ref: G.player,
-    stats: pstats, base: baseP(pstats, ui.track),
-    delta: 0, dnf: false, saved: 0,
-    dale: G.player.team.driver === 'dale', daleUsed: false,
-    fuelImmune: !!CREWS[G.player.team.crew].fuelImmune,
-    pre: baseP(pstats, ui.track),
+  // player uses the chief stat they chose interactively; AIs auto-place theirs
+  const mk = (ref, chiefStat) => {
+    const stats = teamStats(ref.team, chiefStat);
+    const base = baseP(stats, ui.track);
+    return {
+      isPlayer: ref === G.player, name: ref.name, ref,
+      stats, base, delta: 0, dnf: false, saved: 0,
+      dale: ref.team.driver === 'dale', daleUsed: false,
+      fuelImmune: !!CREWS[ref.team.crew].fuelImmune,
+      pre: base,
+    };
   };
-  list.push(p);
-  for (const r of G.rivals) {
-    const rb = rivalBaseP(r);
-    list.push({
-      isPlayer: false, name: r.name, ref: r,
-      stats: { SPD: r.SPD, HAN: r.HAN, DUR: r.DUR, PIT: r.PIT },
-      base: rb, delta: 0, dnf: false, saved: 0,
-      dale: false, fuelImmune: false, pre: rb,
-    });
-  }
+  const list = [mk(G.player, ui.chiefStat)];
+  for (const r of G.rivals) list.push(mk(r, aiChiefStat(r.team, ui.track)));
   return list;
 }
-// Rivals draft too: their effective base climbs with the season, scaled by talent.
-function rivalBaseP(r) {
-  const stats = { SPD: r.SPD, HAN: r.HAN, DUR: r.DUR };
-  const draft = Math.floor((G.race + 1) * (0.5 + r.skill * 0.7));
-  return baseP(stats, ui.track) + draft;
+
+// Per-contender tactic context (same shape as the player's tacticCtx, any team's stats).
+function ctxFor(c) {
+  return {
+    stats: c.stats, track: ui.track,
+    caution: ui.incident && ui.incident.caution,
+    incidentFired: ui.resolved,
+    projTop3: contenderProjTop3(c.base, c.ref),
+  };
+}
+// The strongest OTHER contender (aggression targets it) — spans you and the other AIs.
+function strongestOpponent(self, contenders) {
+  const pool = (contenders || []).filter(c => c !== self && !c.dnf);
+  if (!pool.length) return null;
+  return pool.reduce((a, b) => (b.base + b.delta) > (a.base + a.delta) ? b : a);
+}
+
+// Sum a contender's fired cards into c.tactics (+ driver hooks); queue aggression hits.
+function applyTactics(c, cardIds, ctx, hits) {
+  const team = c.ref.team;
+  let tactics = 0;
+  const playedNotes = [];
+  for (const id of cardIds) {
+    const card = TACTICS[id];
+    const e = card.effect(ctx);
+    let self = e.self || 0;
+    if (card.type === 'Draft' && team.driver === 'buddy') self += 2; // Buddy Draft
+    tactics += self;
+    if (e.target) {
+      const tgt = strongestOpponent(c, ui.contenders);
+      if (tgt) {
+        const amt = (tgt.stats.DUR >= 6 && id === 'trade') ? 0 : e.target;
+        if (amt) hits.push({ target: tgt, amount: amt });
+      }
+    }
+    playedNotes.push(`${card.name}${e.note ? ' (' + e.note + ')' : self ? ' +' + self : ''}`);
+  }
+  let driverBonus = 0, driverNote = '';
+  const drv = team.driver;
+  if (drv === 'lopez') { driverBonus += 3; driverNote = 'Lopez +3 (final stage)'; }
+  if (drv === 'rico' && (ctx.track.type === 'road' || ctx.track.type === 'short')) { driverBonus += 2; driverNote = 'Rico +2 (road/short)'; }
+  c.tactics = tactics + driverBonus;
+  c._driverNote = driverNote;
+  c._playedNotes = playedNotes;
+}
+// Roll 1d6 (with this team's rerolls) and finalize the Race Score.
+function rollAndScore(c) {
+  const team = c.ref.team, drv = team.driver;
+  let die = d6(), dieNote = `1d6 → ${die}`;
+  if (die === 1 && drv === 'freshman') { const r = d6(); dieNote = `1d6 → 1, Rookie reroll → ${r}`; die = r; }
+  if (die <= 2 && CHIEFS[team.chief].hook === 'reroll') { const r = d6(); dieNote = `1d6 → ${die}, Sam reroll → ${r}`; die = r; }
+  c.die = die;
+  c.dieNote = dieNote;
+  c.score = c.dnf ? -999 : c.base + c.tactics + c.delta + die;
+  c.notes = { playedNotes: c._playedNotes, driverNote: c._driverNote, dieNote };
+}
+
+// An AI draws a hand of 5 and greedily fires the best-value cards it can afford,
+// under the same energy cap and gates you play by. Returns the card ids it fired.
+function aiPlayTactics(c, ctx) {
+  const team = c.ref.team;                 // tableau (drivers/chief for cost + rerolls)
+  const hand = shuffle(c.ref.deck).slice(0, HAND).map((id, i) => ({ id, i, used: false }));
+  let energyLeft = ENERGY;
+  if (CHIEFS[team.chief].hook === 'gutcall') energyLeft += 1; // Gutcall Gary parity
+  const chosen = [];
+  while (true) {
+    let best = null, bestVal = 0;
+    for (const h of hand) {
+      if (h.used) continue;
+      const card = TACTICS[h.id];
+      if (!aiCardAllowed(card, ctx)) continue;
+      if (energyCost(card, team) > energyLeft) continue;
+      const val = aiCardValue(card, team, ctx);
+      if (val > bestVal) { bestVal = val; best = h; }
+    }
+    if (!best || bestVal <= 0) break;
+    best.used = true;
+    energyLeft -= energyCost(TACTICS[best.id], team);
+    chosen.push(best.id);
+  }
+  return chosen;
+}
+function aiCardAllowed(card, ctx) {
+  if (card.qualifying) return false;               // Setup is qualifying-only
+  if (card.caution && !ctx.caution) return false;  // Pit cards need a caution
+  return true;
+}
+function aiCardValue(card, team, ctx) {
+  const e = card.effect(ctx);
+  let v = e.self || 0;
+  if (card.type === 'Draft' && team.driver === 'buddy') v += 2;
+  if (e.target) v += Math.abs(e.target);           // hurting the leader ≈ helping yourself
+  return v;
 }
 
 /* ==========================================================================
    FINISH: roll, total scores, assign the 40-car field, score points
    ========================================================================== */
 function finishRace() {
-  const track = ui.track;
   const contenders = ui.contenders;
 
-  // ---- player total ----
-  const pc = ui.playerContender;
-  const stats = pc.stats;
-  let playerTactics = 0;
-  const playedNotes = [];
-  for (const uid of ui.played) {
-    const id = ui.hand.find(h => h.uid === uid).id, c = TACTICS[id];
-    const e = c.effect(tacticCtx());
-    let self = e.self || 0;
-    if (c.type === 'Draft' && G.player.team.driver === 'buddy') self += 2; // Buddy Draft
-    playerTactics += self;
-    if (e.target && ui.target) { ui.target.delta += (ui.target.stats.DUR >= 6 && id === 'trade') ? 0 : e.target; }
-    playedNotes.push(`${c.name}${e.note ? ' (' + e.note + ')' : self ? ' +' + self : ''}`);
-  }
-  // driver score-hooks
-  let driverBonus = 0, driverNote = '';
-  const drv = G.player.team.driver;
-  if (drv === 'lopez') { driverBonus += 3; driverNote = 'Lopez +3 (final stage)'; }
-  if (drv === 'rico' && (track.type === 'road' || track.type === 'short')) { driverBonus += 2; driverNote = 'Rico +2 (road/short)'; }
+  // Decide each contender's fired cards: you from ui.played, each AI from its own hand.
+  const plans = contenders.map(c => {
+    const ctx = ctxFor(c);
+    const cardIds = c.isPlayer
+      ? ui.played.map(uid => ui.hand.find(h => h.uid === uid).id)
+      : aiPlayTactics(c, ctx);
+    return { c, ctx, cardIds };
+  });
 
-  // die (Freshman reroll a nat 1; Strategist Sam reroll 1–2)
-  let die = d6(), dieNote = `1d6 → ${die}`;
-  if (die === 1 && drv === 'freshman') { const r = d6(); dieNote = `1d6 → 1, Rookie reroll → ${r}`; die = r; }
-  if (die <= 2 && CHIEFS[G.player.team.chief].hook === 'reroll') { const r = d6(); dieNote = `1d6 → ${die}, Sam reroll → ${r}`; die = r; }
+  // Pass 1: self-tactics + driver hooks; queue every aggression hit (don't score yet,
+  // so an AI trading paint with you actually lands on your delta before scores are set).
+  const hits = [];
+  for (const { c, ctx, cardIds } of plans) applyTactics(c, cardIds, ctx, hits);
+  for (const h of hits) h.target.delta += h.amount;
 
-  pc.tactics = playerTactics + driverBonus;
-  pc.die = die;
-  pc.dieNote = dieNote;
-  pc.score = pc.dnf ? -999 : pc.base + pc.tactics + pc.delta + die;
-  pc.notes = { playedNotes, driverNote, dieNote };
-
-  // ---- rivals: tactic bonus scaled by skill, plus die ----
-  for (const c of contenders) {
-    if (c.isPlayer) continue;
-    const r = c.ref;
-    // rivals fire tactics too — talent-scaled, capped like an energy budget
-    const tac = Math.round((2 + Math.random() * 3) * (0.7 + r.skill * 0.45));
-    c.tactics = Math.min(tac, 9);
-    c.die = d6();
-    c.score = c.dnf ? -999 : c.base + c.tactics + c.delta + c.die;
-  }
+  // Pass 2: roll the die and finalize each Race Score.
+  for (const { c } of plans) rollAndScore(c);
 
   // ---- assign unique finishing positions on the 40-car field ----
   assignPositions(contenders);
@@ -745,6 +826,11 @@ function standingsTable() {
    PHASE: GARAGE (between races) — §5.5, §10.2
    ========================================================================== */
 function phaseGarage() {
+  // AIs draft first (silently) using the points they just scored this race
+  for (const r of G.rivals) {
+    const rc = ui.contenders.find(c => c.ref === r);
+    aiGarage(r, rc ? rc.points : 0);
+  }
   G.race += 1;
   // payout: sponsor income + a small finish bonus already added to seasonPoints; cash from sponsor + placing
   const inc = sponsorIncome(G.player.team);
@@ -778,6 +864,8 @@ function renderGarage() {
     ${statBlock(stats)}
   </div>
 
+  ${rivalsGaragePanel()}
+
   <div class="grid cols" style="margin-top:16px">
     <div class="card">
       <h2>🃏 Your Deck (${p.deck.length}) <span class="tag">thin for $1</span></h2>
@@ -799,6 +887,24 @@ function renderGarage() {
   <div class="btnrow" style="margin-top:16px">
     <button class="btn primary wide" onclick="startRace()">Roll out for Race ${G.race + 1} →</button>
   </div>`);
+}
+
+// Shows what the AI teams have built into — so you can watch the field draft up too.
+function rivalsGaragePanel() {
+  const cells = G.rivals.map(r => {
+    const s = teamStats(r.team);
+    const D = DRIVERS[r.team.driver], C = CARS[r.team.car];
+    return `<div class="item">
+      <div class="rowsplit"><span class="in">${esc(r.name)}</span><span class="cost">${AI_LABEL[r.archetype]}</span></div>
+      <div class="id">${esc(D.name)} · ${esc(C.name)} — SPD ${s.SPD} · HAN ${s.HAN} · DUR ${s.DUR} · PIT ${s.PIT} · deck ${r.deck.length}</div>
+      <div class="id">${r.lastBuy ? '▲ just acquired <b>' + esc(r.lastBuy) + '</b>' : 'stood pat this round'}</div>
+    </div>`;
+  }).join('');
+  return `<div class="card" style="margin-top:16px">
+    <h2>🏁 Rivals' Garage</h2>
+    <p class="muted" style="font-size:12px">Your ${RIVAL_COUNT} AI rivals draft between every race too — here's where they stand going into Race ${G.race + 1}.</p>
+    <div class="market">${cells}</div>
+  </div>`;
 }
 
 function deckThinList() {
@@ -844,22 +950,63 @@ function buildMarket() {
 }
 function modText(mod) { return 'Bolt-on Part: ' + Object.entries(mod).map(([k, v]) => `${v > 0 ? '+' : ''}${v} ${k}`).join(', '); }
 
-function buy(kind, key) {
-  const t = G.player.team;
-  const table = { tactic: TACTICS, part: PARTS, driver: DRIVERS, car: CARS, chief: CHIEFS, crew: CREWS, sponsor: SPONSORS }[kind];
-  const item = table[key];
-  const c = costOf(item, t);
-  if (G.player.cash < c) { toast('Not enough cash.'); return; }
-  if (kind === 'tactic') G.player.deck.push(key);
+const MARKET_TABLES = { tactic: TACTICS, part: PARTS, driver: DRIVERS, car: CARS, chief: CHIEFS, crew: CREWS, sponsor: SPONSORS };
+
+// Pure purchase: deduct cost and apply the item to an owner (player OR an AI team).
+// Returns the item on success, null if unaffordable. Shared by buy() and aiGarage().
+function applyPurchase(owner, kind, key) {
+  const t = owner.team;
+  const item = MARKET_TABLES[kind][key];
+  const cost = costOf(item, t);
+  if (owner.cash < cost) return null;
+  if (kind === 'tactic') owner.deck.push(key);
   else if (kind === 'part') t.parts.push(key);
-  else if (kind === 'driver') t.driver = key;
-  else if (kind === 'car') t.car = key;
-  else if (kind === 'chief') t.chief = key;
-  else if (kind === 'crew') t.crew = key;
-  else if (kind === 'sponsor') t.sponsor = key;
-  G.player.cash -= c;
+  else t[kind] = key;               // driver/car/chief/crew/sponsor share their slot name
+  owner.cash -= cost;
+  return item;
+}
+
+function buy(kind, key) {
+  const item = applyPurchase(G.player, kind, key);
+  if (!item) { toast('Not enough cash.'); return; }
   toast(`Acquired ${item.name}.`);
   renderGarage();
+}
+
+// Each AI's ordered draft priorities (existing card keys). It buys down this list —
+// identity driver first, then the income sponsor, chassis, parts/crew, then tactics.
+const AI_WISHLISTS = {
+  charger:  [['driver','kyle'], ['sponsor','energy'], ['car','slipstream'], ['part','turbo'], ['part','aero'],
+             ['tactic','sling'], ['tactic','trade'], ['tactic','dirty']],
+  ironman:  [['driver','dale'], ['car','ironhide'], ['sponsor','energy'], ['part','cage'], ['crew','steady'],
+             ['tactic','ppit'], ['tactic','gwc'], ['tactic','spot']],
+  balanced: [['driver','lopez'], ['sponsor','energy'], ['car','apex'], ['crew','aces'], ['part','aero'], ['part','soft'],
+             ['tactic','sling'], ['tactic','gwc'], ['tactic','clean']],
+};
+function aiOwns(t, kind, key) {
+  if (kind === 'tactic') return false;        // can always add another copy
+  if (kind === 'part') return t.parts.includes(key);
+  return t[kind] === key;                     // a filled slot
+}
+// Pay an AI its purse, then draft down its archetype wishlist until its cash can't
+// reach the next want. Thins a filler Steady Lap early when it's flush.
+function aiGarage(owner, lastPoints) {
+  owner.cash += sponsorIncome(owner.team) + Math.max(1, Math.round(lastPoints / 8));
+  const t = owner.team;
+  if (owner.cash >= 5 && owner.deck.filter(id => id === 'steady').length > 3) {
+    owner.deck.splice(owner.deck.indexOf('steady'), 1); owner.cash -= 1;
+  }
+  const wl = AI_WISHLISTS[owner.archetype] || AI_WISHLISTS.balanced;
+  owner.lastBuy = null;
+  for (let bought = true; bought; ) {
+    bought = false;
+    for (const [kind, key] of wl) {
+      if (aiOwns(t, kind, key) || owner.cash < costOf(MARKET_TABLES[kind][key], t)) continue;
+      owner.lastBuy = applyPurchase(owner, kind, key).name;
+      bought = true;             // re-scan from the top so top priorities get first dibs
+      break;
+    }
+  }
 }
 
 /* ==========================================================================
@@ -888,4 +1035,5 @@ function phaseFinale() {
 window.startRace = startRace; window.setChief = setChief; window.clickCard = clickCard;
 window.flipIncident = flipIncident; window.finishRace = finishRace; window.phaseGarage = phaseGarage;
 window.phaseFinale = phaseFinale; window.buy = buy; window.thin = thin; window.newGame = newGame;
+window.setTeamName = setTeamName;
 newGame();
