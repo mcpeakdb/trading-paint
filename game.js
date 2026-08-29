@@ -470,32 +470,177 @@ function fieldPins() {
   return pins.sort((a, b) => a.position - b.position);
 }
 
-/* ---- the oval: two straights + two semicircle ends, walked by arc length ---- */
-const OVAL = { cx: 500, cy: 300, L: 500, R: 172, W: 1000, H: 600 };
-const OVAL_LEN = 2 * OVAL.L + 2 * Math.PI * OVAL.R;
+/* --------------------------------------------------------------------------
+   TRACK MAPS — every venue drawn as its own silhouette.
+   A map is a closed loop of [x, y, cornerRadius] points walked in racing order
+   (ovals run counter-clockwise on screen: down the frontstretch left→right,
+   then left turns all the way round). `sf` is the index of the straight the
+   start/finish line sits on — straight k is the one leaving corner k. `w` is
+   track width, `label` an optional spot for the name plate. Authoring
+   coordinates are arbitrary; every map is auto-fitted into the viewBox.
+   -------------------------------------------------------------------------- */
+const VIEW = { w: 1000, h: 600, pad: 104 };
+
+const TRACK_MAPS = {
+  /* ---- superspeedway tri-ovals: one long bulge down the frontstretch ---- */
+  'Daytona':      { sf: 1, w: 44, pts: [[250,455,155],[500,548,300],[750,455,155],[750,140,155],[250,140,155]] },
+  'Talladega':    { sf: 1, w: 46, pts: [[215,450,160],[500,542,340],[785,450,160],[785,150,160],[215,150,160]] },
+  /* ---- quad-ovals: two shallow kinks with a flat between them ---- */
+  'Charlotte':    { sf: 1, w: 44, pts: [[270,455,160],[380,505,260],[620,505,260],[730,455,160],[730,150,160],[270,150,160]] },
+  'Atlanta':      { sf: 1, w: 40, pts: [[290,455,150],[400,500,240],[600,500,240],[710,455,150],[710,165,150],[290,165,150]] },
+  'Texas':        { sf: 1, w: 42, pts: [[275,460,145],[390,505,250],[610,505,250],[725,460,145],[725,155,145],[275,155,145]] },
+  /* ---- D-shaped intermediates: a single shallow tri-oval bend ---- */
+  'Kansas':       { sf: 1, w: 44, pts: [[265,450,160],[500,500,700],[735,450,160],[735,150,160],[265,150,160]] },
+  'Las Vegas':    { sf: 1, w: 44, pts: [[265,450,160],[560,500,520],[735,445,160],[735,150,160],[265,150,160]] },
+  'Nashville':    { sf: 1, w: 40, pts: [[290,440,150],[500,478,760],[710,440,150],[710,165,150],[290,165,150]] },
+  'Iowa':         { sf: 1, w: 36, pts: [[305,440,140],[500,470,760],[695,440,140],[695,170,140],[305,170,140]] },
+  /* ---- the squarer ovals ---- */
+  'Homestead-Miami': { sf: 0, w: 44, pts: [[255,455,125],[745,455,125],[745,145,125],[255,145,125]] },
+  'Michigan':     { sf: 0, w: 48, pts: [[250,470,175],[750,470,175],[750,130,175],[250,130,175]] },
+  'Indianapolis': { sf: 0, w: 44, pts: [[220,470,85],[780,470,85],[780,130,85],[220,130,85]] },
+  'Dover':        { sf: 0, w: 40, pts: [[330,430,190],[670,430,190],[670,170,190],[330,170,190]] },
+  'New Hampshire':{ sf: 0, w: 40, pts: [[285,440,145],[715,440,145],[715,160,145],[285,160,145]] },
+  'Martinsville': { sf: 0, w: 34, pts: [[265,395,110],[735,395,110],[735,205,110],[265,205,110]] },
+  'Bristol':      { sf: 0, w: 34, pts: [[355,420,175],[645,420,175],[645,180,175],[355,180,175]] },
+  'Richmond':     { sf: 0, w: 36, pts: [[300,455,150],[700,455,150],[715,190,210],[285,190,210]] },
+  /* ---- the odd ones: a dogleg, two eggs and a triangle ---- */
+  'Phoenix':      { sf: 0, w: 38, pts: [[280,455,145],[720,455,145],[720,195,140],[520,120,190],[280,190,140]] },
+  'Darlington':   { sf: 0, w: 38, pts: [[300,455,120],[715,470,175],[730,160,175],[295,185,120]] },
+  'Gateway':      { sf: 0, w: 36, pts: [[320,450,110],[720,465,165],[730,175,165],[315,195,110]] },
+  'Pocono':       { sf: 0, w: 42, pts: [[230,470,70],[770,435,48],[402,240,58]] },
+
+  /* ---- road & street courses ---- */
+  'Watkins Glen': { sf: 0, w: 30, label: [430,300], pts: [
+    [200,455,0],[520,455,58],[660,395,80],[735,270,70],[690,150,64],[470,105,70],
+    [330,150,52],[380,265,58],[560,320,44],[470,405,50],[250,370,74]] },
+  'Sonoma':       { sf: 0, w: 30, label: [520,300], pts: [
+    [230,470,0],[470,470,54],[560,395,60],[700,375,56],[760,275,120],[660,175,110],
+    [470,160,58],[420,265,50],[300,255,46],[350,360,58],[250,395,52]] },
+  'COTA':         { sf: 0, w: 30, label: [480,330], pts: [
+    [200,455,0],[240,190,60],[400,150,70],[520,235,64],[620,150,60],[730,140,56],
+    [790,260,52],[700,330,58],[560,330,48],[610,430,54],[430,470,58],[300,430,50],
+    [330,340,46],[240,330,52]] },
+  'Mexico City':  { sf: 0, w: 30, label: [430,270], pts: [
+    [760,470,0],[790,190,64],[700,120,56],[520,140,70],[430,215,58],[540,285,52],
+    [420,330,54],[250,300,58],[210,395,50],[300,455,44],[380,395,46],[520,420,52],
+    [640,455,60]] },
+  'Charlotte ROVAL': { sf: 0, w: 32, label: [520,235], pts: [
+    [300,500,0],[560,500,90],[640,455,60],[560,410,52],[430,430,50],[380,370,54],
+    [500,330,48],[620,360,46],[700,430,56],[760,470,120],[790,300,150],[700,170,150],
+    [300,170,150],[210,300,150],[250,455,120]] },
+  'San Diego':    { sf: 0, w: 28, label: [470,300], pts: [
+    [230,470,0],[640,470,40],[700,400,36],[610,340,34],[700,275,40],[760,190,38],
+    [640,130,36],[430,130,40],[360,200,34],[450,265,36],[330,330,38],[230,340,40]] },
+
+  _default: { sf: 0, w: 44, pts: [[260,455,160],[740,455,160],[740,145,160],[260,145,160]] },
+};
+
+/* ---- turning a point loop into straights + banked corners ---- */
 const DEG = 180 / Math.PI;
 
-// Point + heading at arc-distance s travelling counterclockwise from the start/finish line
-// (bottom straight, centre). Cars run bottom right→left, up through turns 1–2, etc.
-function ovalAt(s) {
-  const { cx, cy, L, R } = OVAL, half = L / 2, arc = Math.PI * R;
-  s = ((s % OVAL_LEN) + OVAL_LEN) % OVAL_LEN;
-  const onArc = (ox, oy, deg) => {
-    const r = deg / DEG;
-    return { x: ox + R * Math.cos(r), y: oy + R * Math.sin(r), a: Math.atan2(Math.cos(r), -Math.sin(r)) * DEG };
-  };
-  if (s < half) return { x: cx - s, y: cy + R, a: 180 };
-  s -= half;
-  if (s < arc)  return onArc(cx - half, cy, 90 + (s / R) * DEG);
-  s -= arc;
-  if (s < L)    return { x: cx - half + s, y: cy - R, a: 0 };
-  s -= L;
-  if (s < arc)  return onArc(cx + half, cy, 270 + (s / R) * DEG);
-  s -= arc;
-  return { x: cx + half - s, y: cy + R, a: 180 };
+// Corner-rounded closed loop -> ordered segments (arc at corner i, then straight i).
+function buildLoop(pts) {
+  const n = pts.length;
+  const P = pts.map(p => ({ x: p[0], y: p[1] }));
+  const r = pts.map(p => p[2]);
+  const E = P.map((a, i) => {
+    const b = P[(i + 1) % n], dx = b.x - a.x, dy = b.y - a.y, L = Math.hypot(dx, dy) || 1;
+    return { x: dx / L, y: dy / L, L };
+  });
+  // signed turn angle at each corner (+ = the loop bends one way, - = the other)
+  const A = P.map((_, i) => {
+    const u = E[(i - 1 + n) % n], v = E[i];
+    return Math.atan2(u.x * v.y - u.y * v.x, u.x * v.x + u.y * v.y);
+  });
+  const tan = i => r[i] * Math.tan(Math.abs(A[i]) / 2);
+  for (let pass = 0; pass < 6; pass++) {          // shrink radii until corners stop overlapping
+    for (let i = 0; i < n; i++) {
+      const j = (i + 1) % n, need = tan(i) + tan(j);
+      if (need > E[i].L) { const k = (E[i].L / need) * 0.995; r[i] *= k; r[j] *= k; }
+    }
+  }
+  const segs = [];
+  for (let i = 0; i < n; i++) {
+    const u = E[(i - 1 + n) % n], v = E[i], t = tan(i), a = A[i];
+    const entry = { x: P[i].x - u.x * t, y: P[i].y - u.y * t };
+    const exit  = { x: P[i].x + v.x * t, y: P[i].y + v.y * t };
+    if (t > 0.05 && Math.abs(a) > 1e-4) {
+      const s = Math.sign(a), c = { x: entry.x - u.y * r[i] * s, y: entry.y + u.x * r[i] * s };
+      segs.push({ arc: true, c, r: r[i], a0: Math.atan2(entry.y - c.y, entry.x - c.x), sweep: a,
+                  len: r[i] * Math.abs(a), p1: exit });
+    }
+    const next = (i + 1) % n, un = E[i], tn = tan(next);
+    const nEntry = { x: P[next].x - un.x * tn, y: P[next].y - un.y * tn };
+    const dx = nEntry.x - exit.x, dy = nEntry.y - exit.y, L = Math.hypot(dx, dy);
+    segs.push({ line: true, p0: exit, p1: nEntry, len: L, a: Math.atan2(dy, dx) * DEG });
+  }
+  let cum = 0;
+  for (const s of segs) { s.s0 = cum; cum += s.len; }
+  return { segs, len: cum };
 }
-// P1 sits on the stripe; every position behind it is one slot further back around the lap.
-function slotAt(pos) { return ovalAt(-(pos - 1) * (OVAL_LEN / 40)); }
+
+// Position + heading (degrees, screen space) at arc-distance s around the loop.
+function loopAt(loop, s) {
+  const { segs, len } = loop;
+  s = ((s % len) + len) % len;
+  let seg = segs[segs.length - 1];
+  for (const g of segs) if (s >= g.s0 && s < g.s0 + g.len) { seg = g; break; }
+  const t = seg.len ? (s - seg.s0) / seg.len : 0;
+  if (seg.line) return { x: seg.p0.x + (seg.p1.x - seg.p0.x) * t, y: seg.p0.y + (seg.p1.y - seg.p0.y) * t, a: seg.a };
+  const ang = seg.a0 + seg.sweep * t, dir = Math.sign(seg.sweep);
+  return { x: seg.c.x + seg.r * Math.cos(ang), y: seg.c.y + seg.r * Math.sin(ang),
+           a: Math.atan2(dir * Math.cos(ang), -dir * Math.sin(ang)) * DEG };
+}
+
+// The loop as an SVG path.
+function loopPath(loop) {
+  const segs = loop.segs;
+  const first = segs[0].line ? segs[0].p0 : loopAt(loop, 0);
+  let d = `M ${first.x.toFixed(1)} ${first.y.toFixed(1)}`;
+  for (const g of segs) {
+    if (g.line) d += ` L ${g.p1.x.toFixed(1)} ${g.p1.y.toFixed(1)}`;
+    else d += ` A ${g.r.toFixed(1)} ${g.r.toFixed(1)} 0 ${Math.abs(g.sweep) > Math.PI ? 1 : 0} ${g.sweep > 0 ? 1 : 0} ${g.p1.x.toFixed(1)} ${g.p1.y.toFixed(1)}`;
+  }
+  return d + ' Z';
+}
+
+// Build once per venue: fit the authored shape to the viewBox, then keep it.
+const MAP_CACHE = {};
+function trackMap(track) {
+  const key = track.name;
+  if (MAP_CACHE[key]) return MAP_CACHE[key];
+  const spec = TRACK_MAPS[key] || TRACK_MAPS._default;
+  const raw = buildLoop(spec.pts);
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  for (let i = 0; i < 720; i++) {
+    const q = loopAt(raw, (raw.len * i) / 720);
+    x0 = Math.min(x0, q.x); x1 = Math.max(x1, q.x);
+    y0 = Math.min(y0, q.y); y1 = Math.max(y1, q.y);
+  }
+  const pad = VIEW.pad + spec.w / 2;
+  const k = Math.min((VIEW.w - 2 * pad) / (x1 - x0), (VIEW.h - 2 * pad) / (y1 - y0));
+  const dx = (VIEW.w - (x1 - x0) * k) / 2 - x0 * k, dy = (VIEW.h - (y1 - y0) * k) / 2 - y0 * k;
+  const fit = ([x, y, r]) => [x * k + dx, y * k + dy, r * k];
+  const loop = buildLoop(spec.pts.map(fit));
+  // start/finish sits mid-way along straight `sf`
+  const lines = loop.segs.filter(g => g.line);
+  const line = lines[Math.min(spec.sf, lines.length - 1)];
+  const map = {
+    loop, d: loopPath(loop), len: loop.len,
+    w: Math.max(15, Math.min(52, spec.w * k)),
+    sf: line.s0 + line.len / 2,
+    label: spec.label ? { x: spec.label[0] * k + dx, y: spec.label[1] * k + dy }
+                      : { x: VIEW.w / 2, y: VIEW.h / 2 },
+  };
+  MAP_CACHE[key] = map;
+  return map;
+}
+
+// Slot for a finishing position: P1 on the stripe, everyone else strung out behind.
+function slotAt(pos, map) {
+  map = map || trackMap(ui.track);
+  return loopAt(map.loop, map.sf - (pos - 1) * (map.len / 40));
+}
 
 // A stock car pointing +x, drawn in the team's colour.
 function carGlyph(color, dim) {
@@ -511,54 +656,51 @@ function carGlyph(color, dim) {
   </g>`;
 }
 
-// 40 slots strung around the track, 4 of them holding a team car.
+// 40 slots strung around the real shape of this week's track, 4 of them holding a team car.
 function fieldBoard() {
   const pins = fieldPins();
+  const map = trackMap(ui.track);
   const byPos = {};
   for (const p of pins) byPos[p.position] = p;
-  const { cx, cy, L, R, W, H } = OVAL;
-  const half = L / 2;
-  // stadium outline used for the asphalt band and the infield
-  const oval = `M ${cx - half} ${cy - R} H ${cx + half} A ${R} ${R} 0 0 1 ${cx + half} ${cy + R}
-                H ${cx - half} A ${R} ${R} 0 0 1 ${cx - half} ${cy - R} Z`;
-
-  const inward = (q, d) => {                                  // pull a label off the asphalt, into the infield
+  const cx = map.label.x, cy = map.label.y;
+  const off = (q, d) => {                                    // step off the racing line, away from the map's middle
     const len = Math.hypot(q.x - cx, q.y - cy) || 1;
-    return { x: q.x - ((q.x - cx) / len) * d, y: q.y - ((q.y - cy) / len) * d };
+    return { x: q.x + ((q.x - cx) / len) * d, y: q.y + ((q.y - cy) / len) * d };
   };
+
   const holes = times(40, (_, i) => {
     const pos = i + 1;
     if (byPos[pos]) return '';
-    const q = slotAt(pos), major = pos % 5 === 0;
-    const n = inward(q, 22);
+    const q = slotAt(pos, map), major = pos % 5 === 0;
+    const n = off(q, -(map.w / 2 + 12));
     return `<g class="hole${major ? ' major' : ''}"><circle cx="${q.x.toFixed(1)}" cy="${q.y.toFixed(1)}" r="${major ? 5.5 : 4}"/>${
       major ? `<text x="${n.x.toFixed(1)}" y="${(n.y + 4).toFixed(1)}">${pos}</text>` : ''}</g>`;
   }).join('');
 
   const cars = pins.map((p, i) => {
-    const q = slotAt(p.position);
-    const out = Math.hypot(q.x - cx, q.y - cy) || 1;          // outward normal, for the name tag
+    const q = slotAt(p.position, map);
     // bunched cars share a stretch of track, so tags alternate between two rings
     const crowded = pins.some((o, j) => j !== i && Math.abs(o.position - p.position) <= 2);
-    const d = crowded && i % 2 ? 78 : 46;
-    const lx = q.x + ((q.x - cx) / out) * d, ly = q.y + ((q.y - cy) / out) * d;
+    const l = off(q, map.w / 2 + (crowded && i % 2 ? 62 : 28));
     const title = `${p.ref.name} — P${p.position}${p.dnf ? ' (DNF)' : ` · score ${p.final ? p.score : Math.round(p.score + AVG_DIE)}`}`;
     return `<g class="car${p.isPlayer ? ' you' : ''}${p.dnf ? ' out' : ''}" style="--pc:${p.color}">
       <title>${esc(title)}</title>
       <g transform="translate(${q.x.toFixed(1)},${q.y.toFixed(1)}) rotate(${q.a.toFixed(1)})">${carGlyph(p.color, p.dnf)}</g>
-      <g transform="translate(${lx.toFixed(1)},${ly.toFixed(1)})">
+      <g transform="translate(${l.x.toFixed(1)},${l.y.toFixed(1)})">
         <rect x="-34" y="-12" width="68" height="24" rx="12" fill="#10141b" stroke="${p.color}" stroke-width="1.5"/>
         <text x="0" y="5" class="ctag" fill="${p.color}">P${p.position}${p.dnf ? ' DNF' : ' ' + esc(p.tag)}</text>
       </g>
     </g>`;
   }).join('');
 
-  // start/finish stripe across the asphalt at the bottom straight
-  const sf = times(16, (_, i) => {
+  // checkered start/finish line, laid across the track
+  const s = loopAt(map.loop, map.sf), hw = map.w / 2, cell = map.w / 4;
+  const stripe = times(8, (_, i) => {
     const col = i % 2, row = (i / 2) | 0;
-    return `<rect x="${cx - 6 + col * 6}" y="${cy + R - 27 + row * 6.75}" width="6" height="6.75"
-      fill="${(row + col) % 2 ? '#0e1116' : '#e8edf4'}"/>`;
+    return `<rect x="${(col * cell - cell).toFixed(1)}" y="${(row * cell - hw).toFixed(1)}"
+      width="${cell.toFixed(1)}" height="${cell.toFixed(1)}" fill="${(row + col) % 2 ? '#0e1116' : '#e8edf4'}"/>`;
   }).join('');
+  const sfLabel = off(s, -(map.w / 2 + 30));
 
   const legend = pins.map(p => `<span class="ppill${p.isPlayer ? ' you' : ''}" style="--pc:${p.color}">
     <b>P${p.position}</b> ${esc(p.ref.name)}${p.isPlayer ? ' · you' : ''}${p.dnf ? ' <em>DNF</em>' : ''}</span>`).join('');
@@ -570,17 +712,16 @@ function fieldBoard() {
        Rivals' cards stay in their hauler until the flag.${up ? ` <b>+${up.need} more Score</b> moves you into the P${up.band[0]}${up.band[1] > up.band[0] ? '–' + up.band[1] : ''} band.` : ''}`;
 
   return `<div class="card board">
-    <h2>🏟️ Running Order — 40-car field <span class="tag ${ui.finished ? 'gold' : 'blue'}">${ui.finished ? 'FINAL' : 'PROJECTED'}</span></h2>
-    <div class="trackwrap"><svg class="trackmap" viewBox="0 52 ${W} ${H - 96}" preserveAspectRatio="xMidYMid meet" role="img"
-         aria-label="Running order on a 40-slot oval">
-      <path d="${oval}" class="asphalt"/>
-      <path d="${oval}" class="edge outer"/>
-      <path d="${oval}" class="edge inner"/>
-      <path d="${oval}" class="infield"/>
-      ${sf}
-      <text x="${cx}" y="${cy - 10}" class="tname">${esc(ui.track.name)}</text>
-      <text x="${cx}" y="${cy + 16}" class="tsub">${esc(ui.track.kind)} · 40-car field</text>
-      <text x="${cx}" y="${cy + R - 46}" class="tsub sf">🏁 START / FINISH</text>
+    <h2>🏟️ Running Order — ${esc(ui.track.name)} <span class="tag ${ui.finished ? 'gold' : 'blue'}">${ui.finished ? 'FINAL' : 'PROJECTED'}</span></h2>
+    <div class="trackwrap"><svg class="trackmap" viewBox="0 0 ${VIEW.w} ${VIEW.h}" preserveAspectRatio="xMidYMid meet"
+         role="img" aria-label="Running order on the ${esc(ui.track.name)} circuit">
+      <path d="${map.d}" class="infield"/>
+      <path d="${map.d}" class="asphalt" stroke-width="${(map.w + 3).toFixed(1)}"/>
+      <path d="${map.d}" class="surface" stroke-width="${map.w.toFixed(1)}"/>
+      <g transform="translate(${s.x.toFixed(1)},${s.y.toFixed(1)}) rotate(${s.a.toFixed(1)})">${stripe}</g>
+      <text x="${map.label.x.toFixed(1)}" y="${(map.label.y - 8).toFixed(1)}" class="tname">${esc(ui.track.name)}</text>
+      <text x="${map.label.x.toFixed(1)}" y="${(map.label.y + 16).toFixed(1)}" class="tsub">${esc(ui.track.kind)} · 40-car field</text>
+      <text x="${sfLabel.x.toFixed(1)}" y="${sfLabel.y.toFixed(1)}" class="tsub sf">🏁 START / FINISH</text>
       ${holes}
       ${cars}
     </svg></div>

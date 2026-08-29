@@ -166,11 +166,9 @@ hr{border:none;border-top:1px solid var(--line);margin:16px 0}
 /* ---- running-order track map: 40 slots around the oval, 4 cars on it ---- */
 .trackwrap{overflow-x:auto;overflow-y:hidden;margin:2px -4px 4px}
 .trackmap{display:block;width:100%;min-width:520px;height:auto;max-height:460px;overflow:visible}
-.trackmap .asphalt{fill:none;stroke:#2a3140;stroke-width:54}
-.trackmap .edge{fill:none;stroke-width:1.5}
-.trackmap .edge.outer{stroke:#48546a;stroke-width:56;stroke-opacity:.35}
-.trackmap .edge.inner{stroke:#e8edf4;stroke-opacity:.22;stroke-width:1.5}
-.trackmap .infield{fill:#141a22;stroke:none}
+.trackmap .infield{fill:#141a22;stroke:none;fill-rule:evenodd}
+.trackmap .asphalt{fill:none;stroke:#4a566c;stroke-linejoin:round}
+.trackmap .surface{fill:none;stroke:#2a3140;stroke-linejoin:round}
 .trackmap .hole circle{fill:#161c26;stroke:#4a5670;stroke-width:1.2}
 .trackmap .hole.major circle{stroke:#7b8aa0;fill:#1d2531}
 .trackmap .hole text{fill:var(--dim);font-size:11px;font-weight:800;text-anchor:middle;font-family:var(--font)}
