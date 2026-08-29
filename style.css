@@ -162,3 +162,31 @@ hr{border:none;border-top:1px solid var(--line);margin:16px 0}
 .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--panel2);border:1px solid var(--dim);
   border-radius:10px;padding:10px 18px;font-weight:700;box-shadow:0 8px 30px rgba(0,0,0,.5);z-index:50;animation:pop .2s}
 @keyframes pop{from{opacity:0;transform:translate(-50%,8px)}}
+
+/* ---- running-order track map: 40 slots around the oval, 4 cars on it ---- */
+.trackwrap{overflow-x:auto;overflow-y:hidden;margin:2px -4px 4px}
+.trackmap{display:block;width:100%;min-width:520px;height:auto;max-height:460px;overflow:visible}
+.trackmap .asphalt{fill:none;stroke:#2a3140;stroke-width:54}
+.trackmap .edge{fill:none;stroke-width:1.5}
+.trackmap .edge.outer{stroke:#48546a;stroke-width:56;stroke-opacity:.35}
+.trackmap .edge.inner{stroke:#e8edf4;stroke-opacity:.22;stroke-width:1.5}
+.trackmap .infield{fill:#141a22;stroke:none}
+.trackmap .hole circle{fill:#161c26;stroke:#4a5670;stroke-width:1.2}
+.trackmap .hole.major circle{stroke:#7b8aa0;fill:#1d2531}
+.trackmap .hole text{fill:var(--dim);font-size:11px;font-weight:800;text-anchor:middle;font-family:var(--font)}
+.trackmap .tname{fill:var(--ink);font-size:22px;font-weight:900;text-anchor:middle;letter-spacing:.5px;font-family:var(--font)}
+.trackmap .tsub{fill:var(--dim);font-size:11px;font-weight:700;text-anchor:middle;letter-spacing:1.5px;
+  text-transform:uppercase;font-family:var(--font)}
+.trackmap .tsub.sf{fill:var(--faint);font-size:10px}
+.trackmap .ctag{font-size:12px;font-weight:900;text-anchor:middle;letter-spacing:.5px;font-family:var(--font)}
+.trackmap .car .carbody{filter:drop-shadow(0 2px 3px rgba(0,0,0,.6))}
+.trackmap .car.you .carbody{filter:drop-shadow(0 0 7px rgba(255,210,63,.75))}
+.trackmap .car.out{opacity:.6}
+
+.plegend{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+.ppill{display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border-radius:999px;
+  font-size:12px;font-weight:700;color:var(--dim);background:var(--panel2);
+  border:1px solid color-mix(in srgb,var(--pc) 45%,var(--line))}
+.ppill b{color:var(--pc);font-variant-numeric:tabular-nums}
+.ppill.you{color:var(--ink)}
+.ppill em{color:var(--hot);font-style:normal}

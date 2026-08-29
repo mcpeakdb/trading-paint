@@ -155,15 +155,16 @@ function durDNF(c)      { if (c.dale && !c.daleUsed) { c.daleUsed = true; c.save
    FINISH BANDS + POINTS  (§4 and §7)
    ========================================================================== */
 // Score -> [posStart, posEnd] band on the 40-car field. Widths: 1+2+3+4+6+9+9+6 = 40.
-function bandFor(score) {
-  if (score >= 46) return [1, 1];
-  if (score >= 42) return [2, 3];
-  if (score >= 38) return [4, 6];
-  if (score >= 34) return [7, 10];
-  if (score >= 30) return [11, 16];
-  if (score >= 26) return [17, 25];
-  if (score >= 22) return [26, 34];
-  return [35, 40];
+const BANDS = [
+  { min:  46, band: [1, 1] },   { min: 42, band: [2, 3] },   { min: 38, band: [4, 6] },
+  { min:  34, band: [7, 10] },  { min: 30, band: [11, 16] }, { min: 26, band: [17, 25] },
+  { min:  22, band: [26, 34] }, { min: -Infinity, band: [35, 40] },
+];
+function bandFor(score) { return BANDS.find(b => score >= b.min).band; }
+// The next band up from this score, if there is one: { need, band }.
+function nextBand(score) {
+  const up = BANDS.filter(b => b.min > score).pop();
+  return up ? { need: Math.ceil(up.min - score), band: up.band } : null;
 }
 // 2026 Cup: P1=55; P(n)=35-(n-2) down to 1; P37-40 = 1.
 function finishPoints(pos) { return pos === 1 ? 55 : Math.max(1, 35 - (pos - 2)); }
@@ -424,15 +425,175 @@ function tacticCtx() {
   };
 }
 
+/* ==========================================================================
+   RUNNING-ORDER PINBOARD — the 40-car field with the 4 team cars pinned in
+   ========================================================================== */
+const TEAM_COLOR = { player: 'var(--gold)', charger: 'var(--hot)', ironman: 'var(--blue)', balanced: 'var(--green)' };
+const AVG_DIE = 3.5;      // the roll hasn't happened yet — project the field with an average 1d6
+
+function teamInitials(name) {
+  const w = String(name || '?').trim().split(/\s+/).filter(Boolean);
+  return ((w[0] || '?')[0] + (w[1] ? w[1][0] : (w[0] || '?')[1] || '')).toUpperCase();
+}
+// Self-tactic points you've fired so far this race (drives the live board).
+function playerTacticsSoFar() {
+  if (!ui.hand || !ui.played) return 0;
+  const ctx = tacticCtx();
+  return ui.played.reduce((s, uid) => s + (TACTICS[ui.hand.find(h => h.uid === uid).id].effect(ctx).self || 0), 0);
+}
+// Where the four teams sit on the 40-car field right now. Before the finish this is a
+// projection (BaseP + incident + tactics fired so far + an average die); once the race
+// is scored these are the real finishing positions.
+function fieldPins() {
+  let pins;
+  if (ui.finished && ui.results) {
+    pins = ui.results.map(c => ({ ref: c.ref, score: c.score, dnf: c.dnf, position: c.position, final: true }));
+  } else if (ui.contenders) {
+    pins = ui.contenders.map(c => ({
+      ref: c.ref, dnf: c.dnf,
+      score: c.base + c.delta + (c.isPlayer ? playerTacticsSoFar() : 0),
+    }));
+  } else {
+    pins = [{ ref: G.player, dnf: false, score: baseP(playerLiveStats(), ui.track) + playerTacticsSoFar() }]
+      .concat(G.rivals.map(r => ({ ref: r, dnf: false, score: rivalLiveBaseP(r) })));
+  }
+  if (!pins[0].final) {                       // project the band with an average roll
+    const proj = pins.map(p => ({ score: p.dnf ? -999 : p.score + AVG_DIE, dnf: p.dnf }));
+    assignPositions(proj);
+    pins.forEach((p, i) => p.position = proj[i].position);
+  }
+  for (const p of pins) {
+    p.isPlayer = p.ref === G.player;
+    p.color = TEAM_COLOR[p.isPlayer ? 'player' : p.ref.archetype];
+    p.tag = teamInitials(p.ref.name);
+  }
+  return pins.sort((a, b) => a.position - b.position);
+}
+
+/* ---- the oval: two straights + two semicircle ends, walked by arc length ---- */
+const OVAL = { cx: 500, cy: 300, L: 500, R: 172, W: 1000, H: 600 };
+const OVAL_LEN = 2 * OVAL.L + 2 * Math.PI * OVAL.R;
+const DEG = 180 / Math.PI;
+
+// Point + heading at arc-distance s travelling counterclockwise from the start/finish line
+// (bottom straight, centre). Cars run bottom right→left, up through turns 1–2, etc.
+function ovalAt(s) {
+  const { cx, cy, L, R } = OVAL, half = L / 2, arc = Math.PI * R;
+  s = ((s % OVAL_LEN) + OVAL_LEN) % OVAL_LEN;
+  const onArc = (ox, oy, deg) => {
+    const r = deg / DEG;
+    return { x: ox + R * Math.cos(r), y: oy + R * Math.sin(r), a: Math.atan2(Math.cos(r), -Math.sin(r)) * DEG };
+  };
+  if (s < half) return { x: cx - s, y: cy + R, a: 180 };
+  s -= half;
+  if (s < arc)  return onArc(cx - half, cy, 90 + (s / R) * DEG);
+  s -= arc;
+  if (s < L)    return { x: cx - half + s, y: cy - R, a: 0 };
+  s -= L;
+  if (s < arc)  return onArc(cx + half, cy, 270 + (s / R) * DEG);
+  s -= arc;
+  return { x: cx + half - s, y: cy + R, a: 180 };
+}
+// P1 sits on the stripe; every position behind it is one slot further back around the lap.
+function slotAt(pos) { return ovalAt(-(pos - 1) * (OVAL_LEN / 40)); }
+
+// A stock car pointing +x, drawn in the team's colour.
+function carGlyph(color, dim) {
+  return `<g class="carbody"${dim ? ' opacity=".45"' : ''}>
+    <rect x="-13" y="-11" width="9" height="4" rx="1.5" fill="#0a0d12"/>
+    <rect x="-13" y="7"  width="9" height="4" rx="1.5" fill="#0a0d12"/>
+    <rect x="5"   y="-11" width="9" height="4" rx="1.5" fill="#0a0d12"/>
+    <rect x="5"   y="7"  width="9" height="4" rx="1.5" fill="#0a0d12"/>
+    <path d="M-17,-8 L6,-8 Q17,-8 18,0 Q17,8 6,8 L-17,8 Q-19,0 -17,-8 Z" fill="${color}" stroke="#0a0d12" stroke-width="1.5"/>
+    <rect x="-19" y="-9" width="3.5" height="18" rx="1.5" fill="${color}" stroke="#0a0d12" stroke-width="1"/>
+    <path d="M-2,-6 L7,-6 Q11,-6 12,0 Q11,6 7,6 L-2,6 Z" fill="#0b1016" opacity=".72"/>
+    <rect x="-13" y="-6.5" width="9" height="13" rx="2" fill="#ffffff" opacity=".14"/>
+  </g>`;
+}
+
+// 40 slots strung around the track, 4 of them holding a team car.
+function fieldBoard() {
+  const pins = fieldPins();
+  const byPos = {};
+  for (const p of pins) byPos[p.position] = p;
+  const { cx, cy, L, R, W, H } = OVAL;
+  const half = L / 2;
+  // stadium outline used for the asphalt band and the infield
+  const oval = `M ${cx - half} ${cy - R} H ${cx + half} A ${R} ${R} 0 0 1 ${cx + half} ${cy + R}
+                H ${cx - half} A ${R} ${R} 0 0 1 ${cx - half} ${cy - R} Z`;
+
+  const inward = (q, d) => {                                  // pull a label off the asphalt, into the infield
+    const len = Math.hypot(q.x - cx, q.y - cy) || 1;
+    return { x: q.x - ((q.x - cx) / len) * d, y: q.y - ((q.y - cy) / len) * d };
+  };
+  const holes = times(40, (_, i) => {
+    const pos = i + 1;
+    if (byPos[pos]) return '';
+    const q = slotAt(pos), major = pos % 5 === 0;
+    const n = inward(q, 22);
+    return `<g class="hole${major ? ' major' : ''}"><circle cx="${q.x.toFixed(1)}" cy="${q.y.toFixed(1)}" r="${major ? 5.5 : 4}"/>${
+      major ? `<text x="${n.x.toFixed(1)}" y="${(n.y + 4).toFixed(1)}">${pos}</text>` : ''}</g>`;
+  }).join('');
+
+  const cars = pins.map((p, i) => {
+    const q = slotAt(p.position);
+    const out = Math.hypot(q.x - cx, q.y - cy) || 1;          // outward normal, for the name tag
+    // bunched cars share a stretch of track, so tags alternate between two rings
+    const crowded = pins.some((o, j) => j !== i && Math.abs(o.position - p.position) <= 2);
+    const d = crowded && i % 2 ? 78 : 46;
+    const lx = q.x + ((q.x - cx) / out) * d, ly = q.y + ((q.y - cy) / out) * d;
+    const title = `${p.ref.name} — P${p.position}${p.dnf ? ' (DNF)' : ` · score ${p.final ? p.score : Math.round(p.score + AVG_DIE)}`}`;
+    return `<g class="car${p.isPlayer ? ' you' : ''}${p.dnf ? ' out' : ''}" style="--pc:${p.color}">
+      <title>${esc(title)}</title>
+      <g transform="translate(${q.x.toFixed(1)},${q.y.toFixed(1)}) rotate(${q.a.toFixed(1)})">${carGlyph(p.color, p.dnf)}</g>
+      <g transform="translate(${lx.toFixed(1)},${ly.toFixed(1)})">
+        <rect x="-34" y="-12" width="68" height="24" rx="12" fill="#10141b" stroke="${p.color}" stroke-width="1.5"/>
+        <text x="0" y="5" class="ctag" fill="${p.color}">P${p.position}${p.dnf ? ' DNF' : ' ' + esc(p.tag)}</text>
+      </g>
+    </g>`;
+  }).join('');
+
+  // start/finish stripe across the asphalt at the bottom straight
+  const sf = times(16, (_, i) => {
+    const col = i % 2, row = (i / 2) | 0;
+    return `<rect x="${cx - 6 + col * 6}" y="${cy + R - 27 + row * 6.75}" width="6" height="6.75"
+      fill="${(row + col) % 2 ? '#0e1116' : '#e8edf4'}"/>`;
+  }).join('');
+
+  const legend = pins.map(p => `<span class="ppill${p.isPlayer ? ' you' : ''}" style="--pc:${p.color}">
+    <b>P${p.position}</b> ${esc(p.ref.name)}${p.isPlayer ? ' · you' : ''}${p.dnf ? ' <em>DNF</em>' : ''}</span>`).join('');
+  const you = pins.find(p => p.isPlayer);
+  const up = ui.finished || you.dnf ? null : nextBand(you.score + AVG_DIE);
+  const note = ui.finished
+    ? 'Final running order — P1 on the stripe, the field strung out behind. Field cars fill the other 36 slots.'
+    : `Projected running order — your BaseP, the incident and the tactics you've fired, plus an average 1d6.
+       Rivals' cards stay in their hauler until the flag.${up ? ` <b>+${up.need} more Score</b> moves you into the P${up.band[0]}${up.band[1] > up.band[0] ? '–' + up.band[1] : ''} band.` : ''}`;
+
+  return `<div class="card board">
+    <h2>🏟️ Running Order — 40-car field <span class="tag ${ui.finished ? 'gold' : 'blue'}">${ui.finished ? 'FINAL' : 'PROJECTED'}</span></h2>
+    <div class="trackwrap"><svg class="trackmap" viewBox="0 52 ${W} ${H - 96}" preserveAspectRatio="xMidYMid meet" role="img"
+         aria-label="Running order on a 40-slot oval">
+      <path d="${oval}" class="asphalt"/>
+      <path d="${oval}" class="edge outer"/>
+      <path d="${oval}" class="edge inner"/>
+      <path d="${oval}" class="infield"/>
+      ${sf}
+      <text x="${cx}" y="${cy - 10}" class="tname">${esc(ui.track.name)}</text>
+      <text x="${cx}" y="${cy + 16}" class="tsub">${esc(ui.track.kind)} · 40-car field</text>
+      <text x="${cx}" y="${cy + R - 46}" class="tsub sf">🏁 START / FINISH</text>
+      ${holes}
+      ${cars}
+    </svg></div>
+    <div class="plegend">${legend}</div>
+    <p class="muted" style="font-size:12px;margin:8px 0 0">${note}</p>
+  </div>`;
+}
+
 function renderRace() {
   const { track } = ui;
   const stats = playerLiveStats();
   const bp = baseP(stats, track);
-  const playedScore = ui.played.reduce((s, uid) => {
-    const c = TACTICS[ui.hand.find(h => h.uid === uid).id];
-    const e = c.effect(tacticCtx());
-    return s + (e.self || 0);
-  }, 0);
+  const playedScore = playerTacticsSoFar();
   const qualiScore = ui.quali.reduce((s, uid) => {
     const c = TACTICS[ui.hand.find(h => h.uid === uid).id];
     return s + (c.effect(tacticCtx()).quali || 0);
@@ -454,6 +615,7 @@ function renderRace() {
     </div>
   </div>
   ${ui.incident ? incidentBanner() : incidentPrompt()}
+  <div style="margin-top:16px">${fieldBoard()}</div>
   <div class="card" style="margin-top:16px">
     <h2>🃏 Your Hand ${ui.resolved ? '' : '<span class="tag">play Setup for the pole, then race</span>'}</h2>
     ${typeLegend()}
@@ -794,6 +956,7 @@ function phaseResults() {
          <div class="fin">Finish: <b>${finLabel}</b> of 40 · <span style="color:var(--gold)">${pc.points} points</span>${pc.flap ? ' (incl. fastest lap)' : ''}</div>`}
     <div class="muted" style="margin-top:12px;font-size:13px">${noteLines.join(' &nbsp;·&nbsp; ')}</div>
   </div>
+  <div style="margin-top:16px">${fieldBoard()}</div>
   <div class="grid cols" style="margin-top:16px">
     <div class="card">
       <h2>🏁 Race Result — ${esc(track.name)}</h2>
