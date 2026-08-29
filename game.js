@@ -482,57 +482,63 @@ function fieldPins() {
 const VIEW = { w: 1000, h: 600, pad: 104 };
 
 const TRACK_MAPS = {
-  /* ---- superspeedway tri-ovals: one long bulge down the frontstretch ---- */
-  'Daytona':      { sf: 1, w: 44, pts: [[250,455,155],[500,548,300],[750,455,155],[750,140,155],[250,140,155]] },
-  'Talladega':    { sf: 1, w: 46, pts: [[215,450,160],[500,542,340],[785,450,160],[785,150,160],[215,150,160]] },
-  /* ---- quad-ovals: two shallow kinks with a flat between them ---- */
-  'Charlotte':    { sf: 1, w: 44, pts: [[270,455,160],[380,505,260],[620,505,260],[730,455,160],[730,150,160],[270,150,160]] },
-  'Atlanta':      { sf: 1, w: 40, pts: [[290,455,150],[400,500,240],[600,500,240],[710,455,150],[710,165,150],[290,165,150]] },
-  'Texas':        { sf: 1, w: 42, pts: [[275,460,145],[390,505,250],[610,505,250],[725,460,145],[725,155,145],[275,155,145]] },
-  /* ---- D-shaped intermediates: a single shallow tri-oval bend ---- */
-  'Kansas':       { sf: 1, w: 44, pts: [[265,450,160],[500,500,700],[735,450,160],[735,150,160],[265,150,160]] },
-  'Las Vegas':    { sf: 1, w: 44, pts: [[265,450,160],[560,500,520],[735,445,160],[735,150,160],[265,150,160]] },
-  'Nashville':    { sf: 1, w: 40, pts: [[290,440,150],[500,478,760],[710,440,150],[710,165,150],[290,165,150]] },
-  'Iowa':         { sf: 1, w: 36, pts: [[305,440,140],[500,470,760],[695,440,140],[695,170,140],[305,170,140]] },
+  /* ---- superspeedway tri-ovals: the frontstretch bends out around the apex ---- */
+  'Daytona':      { sfArc: 1, w: 44, pts: [[240,440,150],[500,570,215],[760,440,150],[760,150,150],[240,150,150]] },
+  'Talladega':    { sfArc: 1, w: 46, pts: [[200,430,160],[500,560,260],[800,430,160],[800,160,160],[200,160,160]] },
+  /* ---- quad-ovals: two kinks with a flat between them ---- */
+  'Charlotte':    { sf: 1, w: 44, pts: [[250,430,150],[360,535,130],[640,535,130],[750,430,150],[750,150,150],[250,150,150]] },
+  'Atlanta':      { sf: 1, w: 40, pts: [[280,435,140],[390,530,120],[610,530,120],[720,435,140],[720,165,140],[280,165,140]] },
+  'Texas':        { sf: 1, w: 42, pts: [[260,440,140],[375,535,125],[625,535,125],[740,440,140],[740,155,140],[260,155,140]] },
+  /* ---- D-shaped intermediates: one shallow bend down the frontstretch ---- */
+  'Kansas':       { sfArc: 1, w: 44, pts: [[260,440,155],[500,500,430],[740,440,155],[740,155,155],[260,155,155]] },
+  'Las Vegas':    { sfArc: 1, w: 44, pts: [[260,440,155],[575,505,330],[740,430,150],[740,155,150],[260,155,155]] },
+  'Nashville':    { sfArc: 1, w: 40, pts: [[285,435,145],[500,478,520],[715,435,145],[715,170,145],[285,170,145]] },
+  'Iowa':         { sfArc: 1, w: 36, pts: [[310,430,135],[500,468,470],[690,430,135],[690,180,135],[310,180,135]] },
   /* ---- the squarer ovals ---- */
-  'Homestead-Miami': { sf: 0, w: 44, pts: [[255,455,125],[745,455,125],[745,145,125],[255,145,125]] },
-  'Michigan':     { sf: 0, w: 48, pts: [[250,470,175],[750,470,175],[750,130,175],[250,130,175]] },
-  'Indianapolis': { sf: 0, w: 44, pts: [[220,470,85],[780,470,85],[780,130,85],[220,130,85]] },
-  'Dover':        { sf: 0, w: 40, pts: [[330,430,190],[670,430,190],[670,170,190],[330,170,190]] },
-  'New Hampshire':{ sf: 0, w: 40, pts: [[285,440,145],[715,440,145],[715,160,145],[285,160,145]] },
-  'Martinsville': { sf: 0, w: 34, pts: [[265,395,110],[735,395,110],[735,205,110],[265,205,110]] },
-  'Bristol':      { sf: 0, w: 34, pts: [[355,420,175],[645,420,175],[645,180,175],[355,180,175]] },
-  'Richmond':     { sf: 0, w: 36, pts: [[300,455,150],[700,455,150],[715,190,210],[285,190,210]] },
+  'Homestead-Miami': { sf: 0, w: 44, pts: [[250,450,120],[750,450,120],[750,150,120],[250,150,120]] },
+  'Michigan':     { sf: 0, w: 48, pts: [[225,450,165],[775,450,165],[775,150,165],[225,150,165]] },
+  'Indianapolis': { sf: 0, w: 44, pts: [[190,470,80],[810,470,80],[810,130,80],[190,130,80]] },
+  'Dover':        { sf: 0, w: 40, pts: [[345,435,195],[655,435,195],[655,165,195],[345,165,195]] },
+  'New Hampshire':{ sf: 0, w: 40, pts: [[270,435,140],[730,435,140],[730,165,140],[270,165,140]] },
+  'Martinsville': { sf: 0, w: 34, pts: [[250,385,100],[750,385,100],[750,215,100],[250,215,100]] },
+  'Bristol':      { sf: 0, w: 34, pts: [[390,415,190],[610,415,190],[610,185,190],[390,185,190]] },
+  'Richmond':     { sf: 0, w: 36, pts: [[280,475,115],[720,475,115],[765,265,320],[235,265,320]] },
   /* ---- the odd ones: a dogleg, two eggs and a triangle ---- */
-  'Phoenix':      { sf: 0, w: 38, pts: [[280,455,145],[720,455,145],[720,195,140],[520,120,190],[280,190,140]] },
-  'Darlington':   { sf: 0, w: 38, pts: [[300,455,120],[715,470,175],[730,160,175],[295,185,120]] },
-  'Gateway':      { sf: 0, w: 36, pts: [[320,450,110],[720,465,165],[730,175,165],[315,195,110]] },
-  'Pocono':       { sf: 0, w: 42, pts: [[230,470,70],[770,435,48],[402,240,58]] },
+  'Phoenix':      { sf: 0, w: 38, pts: [[265,475,140],[735,475,140],[735,230,120],[520,80,105],[265,220,120]] },
+  'Darlington':   { sf: 0, w: 38, pts: [[305,450,95],[725,500,190],[755,145,190],[295,230,95]] },
+  'Gateway':      { sf: 0, w: 36, pts: [[330,440,90],[720,490,175],[740,155,175],[315,220,90]] },
+  'Pocono':       { sf: 0, w: 42, pts: [[190,480,72],[810,440,50],[400,215,60]] },
 
   /* ---- road & street courses ---- */
-  'Watkins Glen': { sf: 0, w: 30, label: [430,300], pts: [
-    [200,455,0],[520,455,58],[660,395,80],[735,270,70],[690,150,64],[470,105,70],
-    [330,150,52],[380,265,58],[560,320,44],[470,405,50],[250,370,74]] },
-  'Sonoma':       { sf: 0, w: 30, label: [520,300], pts: [
-    [230,470,0],[470,470,54],[560,395,60],[700,375,56],[760,275,120],[660,175,110],
-    [470,160,58],[420,265,50],[300,255,46],[350,360,58],[250,395,52]] },
-  'COTA':         { sf: 0, w: 30, label: [480,330], pts: [
-    [200,455,0],[240,190,60],[400,150,70],[520,235,64],[620,150,60],[730,140,56],
-    [790,260,52],[700,330,58],[560,330,48],[610,430,54],[430,470,58],[300,430,50],
-    [330,340,46],[240,330,52]] },
-  'Mexico City':  { sf: 0, w: 30, label: [430,270], pts: [
-    [760,470,0],[790,190,64],[700,120,56],[520,140,70],[430,215,58],[540,285,52],
-    [420,330,54],[250,300,58],[210,395,50],[300,455,44],[380,395,46],[520,420,52],
-    [640,455,60]] },
-  'Charlotte ROVAL': { sf: 0, w: 32, label: [520,235], pts: [
-    [300,500,0],[560,500,90],[640,455,60],[560,410,52],[430,430,50],[380,370,54],
-    [500,330,48],[620,360,46],[700,430,56],[760,470,120],[790,300,150],[700,170,150],
-    [300,170,150],[210,300,150],[250,455,120]] },
-  'San Diego':    { sf: 0, w: 28, label: [470,300], pts: [
-    [230,470,0],[640,470,40],[700,400,36],[610,340,34],[700,275,40],[760,190,38],
-    [640,130,36],[430,130,40],[360,200,34],[450,265,36],[330,330,38],[230,340,40]] },
+  // the Glen: long straights, the esses up top, and the boot hanging off the far end
+  'Watkins Glen': { sf: 0, w: 30, pts: [
+    [190,430,45],[190,120,32],[340,90,38],[430,165,28],[570,95,32],[830,130,38],
+    [890,265,42],[700,300,30],[865,425,24],[700,565,22],[520,475,28],[330,470,45]] },
+  // Sonoma: uphill to T1, the Carousel sweeping the back, T11 hairpin onto the straight
+  'Sonoma':       { sf: 0, w: 30, pts: [
+    [250,480,35],[570,480,32],[640,390,35],[545,305,30],[630,215,32],[520,135,38],
+    [320,115,32],[195,215,105],[330,330,32],[285,395,28],[440,345,26]] },
+  // COTA: the T1 hairpin at the top of the hill, the esses, a long back straight to T11
+  'COTA':         { sf: 0, w: 28, pts: [
+    [195,480,30],[195,155,28],[335,110,45],[430,185,32],[545,110,32],[655,190,32],
+    [765,120,35],[845,245,32],[690,305,35],[280,375,26],[540,430,32],[640,495,28],
+    [470,535,28],[320,480,32]] },
+  // Mexico City: the long main straight, the esses, then the Foro Sol stadium loop
+  'Mexico City':  { sf: 0, w: 28, pts: [
+    [775,480,32],[795,140,30],[620,100,32],[520,195,28],[605,280,26],[465,325,30],
+    [295,245,32],[190,345,30],[335,440,24],[440,375,22],[530,455,22],[630,395,26],
+    [660,540,85]] },
+  // Coronado street course: runway straights and concrete-walled 90s
+  'San Diego':    { sf: 0, w: 26, pts: [
+    [200,480,26],[690,480,24],[755,390,22],[670,325,20],[775,245,24],[730,125,24],
+    [400,110,26],[325,195,20],[430,255,20],[345,345,24],[175,335,28]] },
+  // the ROVAL: oval banking on the outside, the infield chicane section through the middle
+  'Charlotte ROVAL': { sf: 0, w: 30, pts: [
+    [300,505,60],[560,505,80],[650,455,52],[555,405,46],[420,425,46],[370,360,50],
+    [500,320,44],[625,350,42],[705,425,50],[765,470,110],[795,300,140],[700,165,145],
+    [300,165,145],[205,300,140],[245,460,110]] },
 
-  _default: { sf: 0, w: 44, pts: [[260,455,160],[740,455,160],[740,145,160],[260,145,160]] },
+  _default: { sf: 0, w: 44, pts: [[260,455,155],[740,455,155],[740,145,155],[260,145,155]] },
 };
 
 /* ---- turning a point loop into straights + banked corners ---- */
@@ -622,18 +628,47 @@ function trackMap(track) {
   const dx = (VIEW.w - (x1 - x0) * k) / 2 - x0 * k, dy = (VIEW.h - (y1 - y0) * k) / 2 - y0 * k;
   const fit = ([x, y, r]) => [x * k + dx, y * k + dy, r * k];
   const loop = buildLoop(spec.pts.map(fit));
-  // start/finish sits mid-way along straight `sf`
-  const lines = loop.segs.filter(g => g.line);
-  const line = lines[Math.min(spec.sf, lines.length - 1)];
+  // start/finish sits mid-way along straight `sf` — or mid-corner, for a tri-oval bend
+  const kind = spec.sfArc != null ? 'arc' : 'line';
+  const parts = loop.segs.filter(g => (kind === 'arc' ? g.arc : g.line));
+  const line = parts[Math.min(spec.sfArc != null ? spec.sfArc : spec.sf, parts.length - 1)];
   const map = {
     loop, d: loopPath(loop), len: loop.len,
     w: Math.max(15, Math.min(52, spec.w * k)),
     sf: line.s0 + line.len / 2,
-    label: spec.label ? { x: spec.label[0] * k + dx, y: spec.label[1] * k + dy }
-                      : { x: VIEW.w / 2, y: VIEW.h / 2 },
+    mid: { x: (x0 + x1) / 2 * k + dx, y: (y0 + y1) / 2 * k + dy },
+    label: spec.label ? { x: spec.label[0] * k + dx, y: spec.label[1] * k + dy } : labelSpot(loop),
   };
   MAP_CACHE[key] = map;
   return map;
+}
+
+// The name plate goes on the roomiest patch of infield this circuit offers.
+function labelSpot(loop) {
+  const ring = times(300, (_, i) => loopAt(loop, (loop.len * i) / 300));
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  for (const q of ring) {
+    x0 = Math.min(x0, q.x); x1 = Math.max(x1, q.x);
+    y0 = Math.min(y0, q.y); y1 = Math.max(y1, q.y);
+  }
+  const mx = (x0 + x1) / 2, my = (y0 + y1) / 2;
+  const inside = (x, y) => {                       // ray cast against the sampled racing line
+    let hit = false;
+    for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+      const a = ring[i], b = ring[j];
+      if ((a.y > y) !== (b.y > y) && x < ((b.x - a.x) * (y - a.y)) / (b.y - a.y) + a.x) hit = !hit;
+    }
+    return hit;
+  };
+  let best = null;
+  for (let gx = 1; gx <= 15; gx++) for (let gy = 1; gy <= 11; gy++) {
+    const x = x0 + ((x1 - x0) * gx) / 16, y = y0 + ((y1 - y0) * gy) / 12;
+    let d2 = Infinity;
+    for (const q of ring) d2 = Math.min(d2, (q.x - x) ** 2 + (q.y - y) ** 2);
+    const score = Math.sqrt(d2) + (inside(x, y) ? 70 : 0) - 0.18 * Math.hypot(x - mx, y - my);
+    if (!best || score > best.score) best = { x, y, score };
+  }
+  return best;
 }
 
 // Slot for a finishing position: P1 on the stripe, everyone else strung out behind.
@@ -662,10 +697,11 @@ function fieldBoard() {
   const map = trackMap(ui.track);
   const byPos = {};
   for (const p of pins) byPos[p.position] = p;
-  const cx = map.label.x, cy = map.label.y;
-  const off = (q, d) => {                                    // step off the racing line, away from the map's middle
-    const len = Math.hypot(q.x - cx, q.y - cy) || 1;
-    return { x: q.x + ((q.x - cx) / len) * d, y: q.y + ((q.y - cy) / len) * d };
+  const mid = map.mid;
+  const off = (q, d) => {                                    // step d off the racing line, outward
+    const rad = q.a / DEG, nx = -Math.sin(rad), ny = Math.cos(rad);
+    const out = (q.x - mid.x) * nx + (q.y - mid.y) * ny >= 0 ? 1 : -1;
+    return { x: q.x + nx * d * out, y: q.y + ny * d * out };
   };
 
   const holes = times(40, (_, i) => {

@@ -35,9 +35,12 @@ Most points after 5 races is champion.
 - The **shared incident deck** (§8.4) with DUR-gated catastrophes, cautions,
   Lucky Dog, Rain Delay, Engine Failure (punishes the leader), and extra Big Ones
   on superspeedways.
-- A live **running-order track map**: the 40-car field drawn as an oval, with the four
-  team cars pinned in place (P1 on the stripe, the field strung out behind). It updates
-  as you fire tactics — projected before the flag, final on the results screen.
+- A live **running-order track map**: the 40-car field strung around *this week's actual
+  circuit* — Daytona's tri-oval, Pocono's triangle, Indy's rectangle, Martinsville's
+  paperclip, Bristol's bowl, Darlington's egg, and hand-drawn road courses (the Glen's
+  boot, Sonoma's carousel, COTA, Mexico City, the ROVAL, San Diego's street circuit) —
+  with the four team cars on it (P1 on the stripe, the field behind). It updates as you
+  fire tactics: projected before the flag, final on the results screen.
 - The real **2026 points curve** (P1=55, P(n)=35−(n−2)…1) + fastest-lap +1.
 - **Symmetric AI teams** (§11's hand-piloted rivals): each AI is a full team with its
   own tableau, deck, cash and Garage. They start dead even with you and draft toward

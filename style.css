@@ -171,9 +171,9 @@ hr{border:none;border-top:1px solid var(--line);margin:16px 0}
 .trackmap .surface{fill:none;stroke:#2a3140;stroke-linejoin:round}
 .trackmap .hole circle{fill:#161c26;stroke:#4a5670;stroke-width:1.2}
 .trackmap .hole.major circle{stroke:#7b8aa0;fill:#1d2531}
-.trackmap .hole text{fill:var(--dim);font-size:11px;font-weight:800;text-anchor:middle;font-family:var(--font)}
-.trackmap .tname{fill:var(--ink);font-size:22px;font-weight:900;text-anchor:middle;letter-spacing:.5px;font-family:var(--font)}
-.trackmap .tsub{fill:var(--dim);font-size:11px;font-weight:700;text-anchor:middle;letter-spacing:1.5px;
+.trackmap .hole text{fill:var(--dim);paint-order:stroke;stroke:#141a22;stroke-width:3px;font-size:11px;font-weight:800;text-anchor:middle;font-family:var(--font)}
+.trackmap .tname{fill:var(--ink);paint-order:stroke;stroke:#0e1116;stroke-width:6px;stroke-linejoin:round;font-size:22px;font-weight:900;text-anchor:middle;letter-spacing:.5px;font-family:var(--font)}
+.trackmap .tsub{fill:var(--dim);paint-order:stroke;stroke:#0e1116;stroke-width:4px;stroke-linejoin:round;font-size:11px;font-weight:700;text-anchor:middle;letter-spacing:1.5px;
   text-transform:uppercase;font-family:var(--font)}
 .trackmap .tsub.sf{fill:var(--faint);font-size:10px}
 .trackmap .ctag{font-size:12px;font-weight:900;text-anchor:middle;letter-spacing:.5px;font-family:var(--font)}
